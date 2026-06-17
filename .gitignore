@@ -1,0 +1,4 @@
+# ignore
+.clasp.json
+# don't ignore
+!GAS_scripts/appsscript.json
