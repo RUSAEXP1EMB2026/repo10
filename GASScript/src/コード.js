@@ -1,4 +1,0 @@
-function myFunction() {
-  //test test
-  
-}
