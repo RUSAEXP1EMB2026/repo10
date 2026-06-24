@@ -1,0 +1,6 @@
+# ignore
+**/**
+# don't ignore
+!appsscript.json
+!**/*.html
+!**/*.js
