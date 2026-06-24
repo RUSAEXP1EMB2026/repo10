@@ -1,6 +1,6 @@
-# ignore
-**/**
-# don't ignore
-!appsscript.json
-!**/*.html
-!**/*.js
+node_modules/
+.git/
+.gitignore
+package.json
+package-lock.json
+README.md
