@@ -1,0 +1,16 @@
+{
+  "name": "emb-gas",
+  "version": "1.0.0",
+  "description": "GAS + Nature Remo 3 project",
+  "scripts": {
+    "pull": "clasp pull",
+    "push": "clasp push",
+    "watch": "clasp push --watch",
+    "login": "clasp login",
+    "logout": "clasp logout"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.3.0",
+    "@types/google-apps-script": "^1.0.83"
+  }
+}
