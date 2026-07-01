@@ -26,7 +26,7 @@ function getSheet(name) {
   const sheet = spreadsheet.getSheetByName(name);
 
   if (!sheet) {
-    throw new Error('シートが見つかりません');
+    throw new Error('シートが見つかりません');//シートが見つからない場合はエラーを投げる
   }
 
   return sheet;
