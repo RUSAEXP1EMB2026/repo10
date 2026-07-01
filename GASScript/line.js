@@ -1,3 +1,9 @@
+function doGet(e) {
+  const result = getFortuneResult("fortune_today");
+  return ContentService.createTextOutput(result);
+}
+
+
 function doPost(e) {
   const json = JSON.parse(e.postData.contents);
   const event = json.events[0];
