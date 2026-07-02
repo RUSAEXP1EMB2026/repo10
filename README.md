@@ -1,6 +1,6 @@
 # Fourune Teller (占いシステム)
 
-![Fourune Teller](https://github.com/user-attachments/assets/cb141648-0068-42f5-9122-ccaf69e6610f)
+![Fourune Teller](https://imgur.com/a/iyB7IN1)
 
 このプロジェクトは、Nature Remo 3 のセンサデータと天気予報 API を連携し、ユーザに当日の占い結果を生成して LINE で通知するシステムです。
 
