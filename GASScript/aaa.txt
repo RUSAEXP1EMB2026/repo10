@@ -1,0 +1,217 @@
+aaa.txt
+
+
+
+
+// const CHANNEL_ACCESS_TOKEN = 'AupnW8LjmmY23v6Al+lGVACJE6k5ES65EYNJv58SWTza5y98ymb81+100iqHDGTgVbjMQqTM8a40kjSAdSYrGhMiJXV+nAdf9SltYcxWzjiFHN2WO6TyJHraMmhzP4lsZld/zf55D3JjGssyMlrk8wdB04t89/1O/w1cDnyilFU=';
+// // const SHEET_ID = '1LP6hXdUgDEO8EastWvRNnCsfBg0yapZvORRiTzrhHZs'; // 生年月日を保存するシート
+// const SHEET_ID = '1czsCsQTLGVql6AaLEo7vO9D52kxxSmSskbSzyCPXACY'; // 生年月日を保存するシート
+// function doPost(e) {
+//   try{
+
+//     const json = JSON.parse(e.postData.contents);
+//     const event = json.events[0];
+//     const userId = event.source.userId;
+//     console.log("s");
+//     // ① 友だち追加イベント（follow）
+//     if (event.type === 'follow') {
+//       sendToLINE(userId, 'こんにちは！生年月日を入力してください（例：2001-07-01）');
+//       return ContentService.createTextOutput('OK');
+//     }
+
+//     // ② メッセージイベント
+//     if (event.type === 'message' && event.message.type === 'text') {
+//       const userText = event.message.text.trim();
+
+//       // 生年月日形式かどうか確認（YYYY-MM-DD）
+//       if (/^\d{4}-\d{2}-\d{2}$/.test(userText)) {
+//         saveBirthday(userId, userText);
+//         sendToLINE(userId, '登録完了！次回から「占い」ボタンを押すだけで結果が見られます✨');
+//         return ContentService.createTextOutput('OK');
+//       }
+
+//       // 「占い」ボタンが押された場合
+//       if (userText === '占い結果') {
+//         const birthday = getBirthday(userId);
+//         if (!birthday) {
+//           sendToLINE(userId, 'まだ生年月日が登録されていません。入力してください（例：2001-07-01）');
+//           return ContentService.createTextOutput('OK');
+//         }
+
+//         const resultText = getFortuneResult(birthday);
+//         const messageText = resultText ? resultText : 'ただいまメンテナンス中';
+//         sendToLINE(userId, messageText);
+//         return ContentService.createTextOutput('OK');
+//       }
+//     }
+
+//     return ContentService.createTextOutput('OK');
+//   } catch(error){
+//     logErrorToSheet(error, e);
+//   }
+// }
+
+
+// ===== LINE オウム返し Bot (Google Apps Script) =====
+// 事前準備: スクリプトプロパティに CHANNEL_ACCESS_TOKEN を登録しておくこと
+//   プロジェクトの設定 > スクリプト プロパティ > プロパティを追加
+//   プロパティ名: CHANNEL_ACCESS_TOKEN / 値: LINE Developers で発行したトークン
+
+// const CHANNEL_ACCESS_TOKEN = "yArZknXZJL5Y/w9FJB0HyxqxrMRIagUD7nhB9Ewlynb+oXPDhFBBU9jYY6Yd2ATUs32kf1RYEWqzAZs8PGhQtAFLch351zvHwcpiKZscRBBFPWQ5z20H5fjn2H+Fm0csncNDLG+Y0WT7jMquN7Do9AdB04t89/1O/w1cDnyilFU="
+
+/
+const CHANNEL_ACCESS_TOKEN = "WYp79menRFVzgk/FHtqMnlRD2TuVXkvTEvfRgWl4Wkwqw/r7F0iykIH7KuZDfz/FVbjMQqTM8a40kjSAdSYrGhMiJXV+nAdf9SltYcxWzjhyIssym/e50mK5X1ZjumfV8HXWlnSAOnS+8qdMRpbE0wdB04t89/1O/w1cDnyilFU="
+const LINE_REPLY_ENDPOINT = 'https://api.line.me/v2/bot/message/reply';
+
+/**
+ * LINE の Webhook から POST を受け取るエントリポイント
+ */
+function doPost(e) {
+  // リクエストボディが無い場合は何もしない
+  if (!e || !e.postData || !e.postData.contents) {
+    return ContentService.createTextOutput('no data');
+  }
+
+  const body = JSON.parse(e.postData.contents);
+  const events = body.events || [];
+
+  events.forEach(function (event) {
+    // テキストメッセージ以外は無視する
+    if (event.type !== 'message' || event.message.type !== 'text') {
+      return;
+    }
+    replyText(event.replyToken, event.message.text);
+  });
+
+  // LINE には 200 を返しておく
+  return ContentService.createTextOutput('OK');
+  console.log("OK")
+}
+
+/**
+ * replyToken を使って同じテキストを返信する
+ */
+function replyText(replyToken, text) {
+  const payload = {
+    replyToken: replyToken,
+    messages: [
+      {
+        type: 'text',
+        text: text,
+      },
+    ],
+  };
+
+  const options = {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + CHANNEL_ACCESS_TOKEN,
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true, // エラー時もログで確認できるように
+  };
+
+  const response = UrlFetchApp.fetch(LINE_REPLY_ENDPOINT, options);
+
+  // 失敗時のデバッグ用ログ
+  if (response.getResponseCode() !== 200) {
+    console.error('LINE API error: ' + response.getContentText());
+  }
+}
+
+function logErrorToSheet(error, e){
+  getSheet('line-error').getRange(9, 1, 1, 3).setValues([[new Date(), error, e]])
+}
+
+// function doPost(e) {
+//   // LINEから送られてきたWebhookデータを解析
+//   const json = JSON.parse(e.postData.contents);
+//   const event = json.events[0];
+
+//   // メッセージイベントではない、またはテキストメッセージではない場合は終了
+//   if (event.type !== 'message' || event.message.type !== 'text') {
+//     return ContentService.createTextOutput(JSON.stringify({'content': 'post ok'}))
+//                          .setMimeType(ContentService.MimeType.JSON);
+//   }
+
+//   // ユーザーからのメッセージと返信用トークンを取得
+//   const userMessage = event.message.text;
+//   const replyToken = event.replyToken;
+
+//   // LINEの応答用API URL
+//   const url = 'https://api.line.me/v2/bot/message/reply';
+
+//   // 送信するデータ（受け取ったメッセージをそのままセット）
+//   const payload = {
+//     'replyToken': replyToken,
+//     'messages': [{
+//       'type': 'text',
+//       'text': userMessage // ここでオウム返しをしています
+//     }]
+//   };
+
+//   // 通信オプション
+//   const options = {
+//     'method': 'post',
+//     'headers': {
+//       'Content-Type': 'application/json',
+//       'Authorization': 'Bearer ' + CHANNEL_ACCESS_TOKEN
+//     },
+//     'payload': JSON.stringify(payload)
+//   };
+
+//   // LINEへデータを送信
+//   UrlFetchApp.fetch(url, options);
+
+//   // LINE側に成功を返す
+//   return ContentService.createTextOutput(JSON.stringify({'content': 'post ok'}))
+//                        .setMimeType(ContentService.MimeType.JSON);
+// }
+
+// 🔹 生年月日をスプレッドシートに保存
+function saveBirthday(userId, birthday) {
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('birthday');
+  sheet.appendRow([userId, birthday]);
+}
+
+// 🔹 生年月日を取得
+function getBirthday(userId) {
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('birthday');
+  const data = sheet.getDataRange().getValues();
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === userId) return data[i][1];
+  }
+  return null;
+}
+
+// 🔹 LINEにメッセージを送信
+function sendToLINE(userId, text) {
+  const url = 'https://api.line.me/v2/bot/message/push';
+  const payload = {
+    to: userId,
+    messages: [{ type: 'text', text: text }]
+  };
+
+  UrlFetchApp.fetch(url, {
+    method: 'post',
+    headers: { Authorization: 'Bearer ' + CHANNEL_ACCESS_TOKEN },
+    contentType: 'application/json',
+    payload: JSON.stringify(payload)
+  });
+}
+
+// 🔹 占い結果を導出する関数
+function getFortuneResult(birthday) {
+  const year = parseInt(birthday.split('-')[0]);
+  const luck = year % 5;
+  const fortunes = ['大吉', '中吉', '小吉', '吉', '凶'];
+  return `あなたの今日の運勢は「${fortunes[luck]}」です！`;
+}
+
+// ★ 手動実行専用の権限付与関数
+function authorize() {
+  // どこでもいいので外部アクセスを1回行う
+  UrlFetchApp.fetch("https://www.google.com");
+}
+
