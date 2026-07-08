@@ -24,7 +24,7 @@ function doPost(e) {
     }
 
     // 「占い」ボタンが押された場合
-    if (userText === 'うい') {
+    if (userText === '占い結果') {
       const birthday = getBirthday(userId);
       if (!birthday) {
         sendToLINE(userId, 'まだ生年月日が登録されていません。入力してください（例：2001-07-01）');
