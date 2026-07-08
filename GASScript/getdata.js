@@ -15,6 +15,7 @@ function recordSensorData() {
   }
 
   setSensorData(arg, lastSensorData + 1);
+  detectBrightnessDropNight();//記録後に明るさの差を調べる
 }
 
 function setSensorData(data, row) {
@@ -48,4 +49,35 @@ function getNatureRemoData(endpoint) {
   };
 
   return JSON.parse(UrlFetchApp.fetch("https://api.nature.global/1/" + endpoint, options));
+}
+function detectBrightnessDropNight() {
+  const sheet = getSheet('sensor');
+  const data = sheet.getDataRange().getValues();
+
+  if (data.length < 3) {
+    return;
+  }
+
+  const rows = data.slice(1);
+  const lastRowIndex = rows.length;
+
+  const last = rows[lastRowIndex - 1];
+  const prev = rows[lastRowIndex - 2];
+
+  // ★ bri は 4列目（index 3）
+  const briNow = last[3];
+  const briPrev = prev[3];
+
+  const drop = briPrev - briNow;
+
+  const THRESHOLD = 50;
+
+  // ★ dropFlag は 5列目（index 4）
+  const dropFlagColumn = 5;
+
+  if (drop >= THRESHOLD) {
+    sheet.getRange(lastRowIndex + 1, dropFlagColumn).setValue(drop);
+  } else {
+    sheet.getRange(lastRowIndex + 1, dropFlagColumn).setValue(0);
+  }
 }
