@@ -1,79 +1,98 @@
-const CHANNEL_ACCESS_TOKEN = 'Ic/kTvd+zTRW9INdRgQeSsfzR0ZMuE2gUO5+gFxHnZk4IkbKBaed7RhS7s24cvloVbjMQqTM8a40kjSAdSYrGhMiJXV+nAdf9SltYcxWzjilVixJvljDUBV5cGsdH8fnNb70G1xEnh4vVWQQGuS+KgdB04t89/1O/w1cDnyilFU=';
-const SHEET_ID = '1LP6hXdUgDEO8EastWvRNnCsfBg0yapZvORRiTzrhHZs'; // 生年月日シート
+const CHANNEL_ACCESS_TOKEN = 'sGrX18d8EAOVD/iyVQdvHScc2zUZD3/zbHU9T21N2F1hkZgGdsnEm2rVfYDUgwVvVbjMQqTM8a40kjSAdSYrGhMiJXV+nAdf9SltYcxWzjhKHiJXTk0kmb1EkHq71QIrJRSgnFQlf6T5/lXG+EIfGgdB04t89/1O/w1cDnyilFU=';
+const SHEET_ID = '1LP6hXdUgDEO8EastWvRNnCsfBg0yapZvORRiTzrhHZs'; // 生年月日を保存するシート
+
+// function doPost(e) {
+//   const json = JSON.parse(e.postData.contents);
+//   const event = json.events[0];
+//   const userId = event.source.userId;
+
+//   // ① 友だち追加イベント（follow）
+//   if (event.type === 'follow') {
+//     sendToLINE(userId, 'こんにちは！生年月日を入力してください（例：2001-07-01）');
+//     return ContentService.createTextOutput('OK');
+//   }
+
+//   // ② メッセージイベント
+//   if (event.type === 'message' && event.message.type === 'text') {
+//     const userText = event.message.text.trim();
+
+//     // 生年月日形式かどうか確認（YYYY-MM-DD）
+//     if (/^\d{4}-\d{2}-\d{2}$/.test(userText)) {
+//       saveBirthday(userId, userText);
+//       sendToLINE(userId, '登録完了！次回から「占い」ボタンを押すだけで結果が見られます✨');
+//       return ContentService.createTextOutput('OK');
+//     }
+
+//     // 「占い」ボタンが押された場合
+//     if (userText === '占い結果') {
+//       const birthday = getBirthday(userId);
+//       if (!birthday) {
+//         sendToLINE(userId, 'まだ生年月日が登録されていません。入力してください（例：2001-07-01）');
+//         return ContentService.createTextOutput('OK');
+//       }
+
+//       const resultText = getFortuneResult(birthday);
+//       const messageText = resultText ? resultText : 'ただいまメンテナンス中';
+//       sendToLINE(userId, messageText);
+//       return ContentService.createTextOutput('OK');
+//     }
+//   }
+
+//   return ContentService.createTextOutput('OK');
+// }
 
 function doPost(e) {
+  // LINEから送られてきたWebhookデータを解析
   const json = JSON.parse(e.postData.contents);
   const event = json.events[0];
-  const userId = event.source.userId;
 
-  // ① 友だち追加
-  if (event.type === 'follow') {
-    sendToLINE(userId, 'こんにちは！生年月日を入力してください（例：2001-07-01）');
-    return ContentService.createTextOutput('OK');
+  // メッセージイベントではない、またはテキストメッセージではない場合は終了
+  if (event.type !== 'message' || event.message.type !== 'text') {
+    return ContentService.createTextOutput(JSON.stringify({'content': 'post ok'}))
+                         .setMimeType(ContentService.MimeType.JSON);
   }
 
-  // ② メッセージ受信
-  if (event.type === 'message' && event.message.type === 'text') {
-    const userText = event.message.text.trim();
+  // ユーザーからのメッセージと返信用トークンを取得
+  const userMessage = event.message.text;
+  const replyToken = event.replyToken;
 
-    // 生年月日登録
-    if (/^\d{4}-\d{2}-\d{2}$/.test(userText)) {
-      saveBirthday(userId, userText);
-      sendToLINE(userId, '登録完了！次回から「占い結果」ボタンを押すだけで結果が見られます✨');
-      return ContentService.createTextOutput('OK');
-    }
+  // LINEの応答用API URL
+  const url = 'https://api.line.me/v2/bot/message/reply';
 
-    // 占い結果
-    if (userText === '占い結果') {
-      const birthday = getBirthday(userId);
-      if (!birthday) {
-        sendToLINE(userId, 'まだ生年月日が登録されていません。入力してください（例：2001-07-01）');
-        return ContentService.createTextOutput('OK');
-      }
+  // 送信するデータ（受け取ったメッセージをそのままセット）
+  const payload = {
+    'replyToken': replyToken,
+    'messages': [{
+      'type': 'text',
+      'text': userMessage // ここでオウム返しをしています
+    }]
+  };
 
-      // ⭐ ここから占い処理 ⭐
+  // 通信オプション
+  const options = {
+    'method': 'post',
+    'headers': {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + CHANNEL_ACCESS_TOKEN
+    },
+    'payload': JSON.stringify(payload)
+  };
 
-      // A: ランキング
-      const ranking = generateRanking(); // zodiacRank, constellationRank, overallRank
-      const A = calcA(); // 0〜1
+  // LINEへデータを送信
+  UrlFetchApp.fetch(url, options);
 
-      const rankingText =
-        `【今日のランキング】\n` +
-        `干支順位: ${ranking.zodiacRank}\n` +
-        `星座順位: ${ranking.constellationRank}\n` +
-        `総合順位: ${ranking.overallRank} 位\n` +
-        `運勢スコア(A): ${(A * 100).toFixed(1)}%`;
-
-      sendToLINE(userId, rankingText);
-
-      // B: センサー平均値
-      const avg = getSensorAverages(); // avgTmp, avgHum, avgBri
-      const sleepHours = 7; // 必要なら変更
-      const region = "関東"; // 必要なら変更
-      const rainP = getRainProbability(region);
-
-      // C: ラッキーアイテム
-      const luckyItem = getLuckyItem(avg.avgTmp, avg.avgHum, sleepHours, rainP);
-      sendToLINE(userId, `【ラッキーアイテム】\n${luckyItem}`);
-
-      // D: アドバイス（Gemini）
-      const advice = generateAdvice(avg.avgTmp, avg.avgHum, sleepHours, rainP);
-      sendToLINE(userId, `【今日のアドバイス】\n${advice}`);
-
-      return ContentService.createTextOutput('OK');
-    }
-  }
-
-  return ContentService.createTextOutput('OK');
+  // LINE側に成功を返す
+  return ContentService.createTextOutput(JSON.stringify({'content': 'post ok'}))
+                       .setMimeType(ContentService.MimeType.JSON);
 }
 
-// 生年月日保存
+// 🔹 生年月日をスプレッドシートに保存
 function saveBirthday(userId, birthday) {
   const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('birthday');
   sheet.appendRow([userId, birthday]);
 }
 
-// 生年月日取得
+// 🔹 生年月日を取得
 function getBirthday(userId) {
   const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('birthday');
   const data = sheet.getDataRange().getValues();
@@ -83,7 +102,7 @@ function getBirthday(userId) {
   return null;
 }
 
-// LINE送信
+// 🔹 LINEにメッセージを送信
 function sendToLINE(userId, text) {
   const url = 'https://api.line.me/v2/bot/message/push';
   const payload = {
@@ -97,4 +116,12 @@ function sendToLINE(userId, text) {
     contentType: 'application/json',
     payload: JSON.stringify(payload)
   });
+}
+
+// 🔹 占い結果を導出する関数
+function getFortuneResult(birthday) {
+  const year = parseInt(birthday.split('-')[0]);
+  const luck = year % 5;
+  const fortunes = ['大吉', '中吉', '小吉', '吉', '凶'];
+  return `あなたの今日の運勢は「${fortunes[luck]}」です！`;
 }
