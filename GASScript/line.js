@@ -1,4 +1,4 @@
-const CHANNEL_ACCESS_TOKEN = 'sGrX18d8EAOVD/iyVQdvHScc2zUZD3/zbHU9T21N2F1hkZgGdsnEm2rVfYDUgwVvVbjMQqTM8a40kjSAdSYrGhMiJXV+nAdf9SltYcxWzjhKHiJXTk0kmb1EkHq71QIrJRSgnFQlf6T5/lXG+EIfGgdB04t89/1O/w1cDnyilFU=';
+const CHANNEL_ACCESS_TOKEN = 'Ic/kTvd+zTRW9INdRgQeSsfzR0ZMuE2gUO5+gFxHnZk4IkbKBaed7RhS7s24cvloVbjMQqTM8a40kjSAdSYrGhMiJXV+nAdf9SltYcxWzjilVixJvljDUBV5cGsdH8fnNb70G1xEnh4vVWQQGuS+KgdB04t89/1O/w1cDnyilFU=';
 const SHEET_ID = '1LP6hXdUgDEO8EastWvRNnCsfBg0yapZvORRiTzrhHZs'; // 生年月日シート
 
 function doPost(e) {
