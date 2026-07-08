@@ -178,3 +178,34 @@ function testLuckyItem() {
     Logger.log('Lucky item: ' + item);
     return item;
 }
+
+/**
+ * センサ平均値と地域名から降水確率を取得してラッキーアイテムを選ぶラッパー。
+ * @param {string} regionName 地域名（省略時 '関東'）
+ * @param {number=} sleepHours 睡眠時間（時間）。省略時は 7
+ * @return {string}
+ */
+function getLuckyItemFromSensors(regionName, sleepHours) {
+    regionName = regionName || '関東';
+    sleepHours = typeof sleepHours === 'number' ? sleepHours : 7;
+
+    var averages = getSensorAverages();
+    var avgTmp = averages && typeof averages.avgTmp === 'number' ? averages.avgTmp : 22;
+    var avgHum = averages && typeof averages.avgHum === 'number' ? averages.avgHum : 55;
+
+    var precip = 0;
+    try {
+        precip = getRainProbability(regionName);
+    } catch (e) {
+        Logger.log('getRainProbability failed: ' + e);
+        precip = 0;
+    }
+
+    return getLuckyItem(avgTmp, avgHum, sleepHours, precip);
+}
+
+function testLuckyItemSensors() {
+    var item = getLuckyItemFromSensors('関東', 7);
+    Logger.log('Lucky item (sensors): ' + item);
+    return item;
+}
