@@ -16,7 +16,7 @@ function recordSensorData() {
 
   setSensorData(arg, lastSensorData + 1);
   detectBrightnessDropNight();//記録後に明るさの差を調べる
-  detectBrightnessRiseMorning();
+  detectBrightnessRiseMorning();//記録後に明るさの差を調べる
 }
 
 function setSensorData(data, row) {

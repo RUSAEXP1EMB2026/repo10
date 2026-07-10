@@ -87,5 +87,5 @@ function testD() {
 }
 
 function calcH(A, B, C, D) {
-  return 0.55 * A + 0.2 * B + 0.15 * C + 0.1 * D;
+  return 0.55 * A + 0.2 * B + 0.15 * C + 0.1 * D;//計算式
 }
