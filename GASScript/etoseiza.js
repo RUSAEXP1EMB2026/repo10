@@ -35,14 +35,14 @@ function getHoroscope(month, day) {
 }
 
 // 生年月日から干支と星座を返す
-function getFortuneResult(birthday) {
+function getEtoseiza(birthday) {
   const [year, month, day] = birthday.split("-").map(Number);
   const zodiac = getZodiacAnimal(year);
   const horoscope = getHoroscope(month, day);
   return `干支：${zodiac}\n星座：${horoscope}`;
 }
-function testFortune() {
+function testEto() {
   const birthday = "2001-07-01";  // ←好きな生年月日に変更OK
-  const result = getFortuneResult(birthday);
+  const result = getEtoseiza(birthday);
   Logger.log(result);
 }
