@@ -40,6 +40,35 @@ function testB() {
   const B = calcB();  // B を計算
   Logger.log("B = " + B);
 }
+function getSleepHours() {
+  const sheet = getSheet('sensor');
+  const data = sheet.getDataRange().getValues().slice(1); // ヘッダー除外
+
+  // 就寝（dropFlag=1）
+  const sleepRows = data.filter(row => row[4] === 1);
+  if (sleepRows.length === 0) return null;
+
+  const sleepTime = new Date(sleepRows[sleepRows.length - 1][0]);
+
+  // 起床（wakeFlag=1）
+  const wakeRows = data.filter(row => row[5] === 1);
+  if (wakeRows.length === 0) return null;
+
+  const wakeTime = new Date(wakeRows[0][0]); // 最初の起床を採用
+
+  // 睡眠時間（時間）
+  const diffHours = (wakeTime - sleepTime) / (1000 * 60 * 60);
+
+  return diffHours;
+}
+
+
+function calcC() {
+  const S = getSleepHours();
+  if (S === null) return null;
+
+  return calcSleepScore(S);  
+}
 
 function calcD(regionName) {
   const P = getRainProbability(regionName); // 地方名を渡す
@@ -55,4 +84,8 @@ function testD() {
   Logger.log("地域: " + region);
   Logger.log("降水確率 P = " + P + "%");
   Logger.log("D = " + D);
+}
+
+function calcH(A, B, C, D) {
+  return 0.55 * A + 0.2 * B + 0.15 * C + 0.1 * D;
 }
