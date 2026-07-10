@@ -41,3 +41,8 @@ function getFortuneResult(birthday) {
   const horoscope = getHoroscope(month, day);
   return `干支：${zodiac}\n星座：${horoscope}`;
 }
+function testFortune() {
+  const birthday = "2001-07-01";  // ←好きな生年月日に変更OK
+  const result = getFortuneResult(birthday);
+  Logger.log(result);
+}
