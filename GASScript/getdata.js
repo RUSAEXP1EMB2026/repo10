@@ -15,6 +15,8 @@ function recordSensorData() {
   }
 
   setSensorData(arg, lastSensorData + 1);
+  detectBrightnessDropNight();//記録後に明るさの差を調べる
+  detectBrightnessRiseMorning();//記録後に明るさの差を調べる
 }
 
 function setSensorData(data, row) {
@@ -26,7 +28,7 @@ function getSheet(name) {
   const sheet = spreadsheet.getSheetByName(name);
 
   if (!sheet) {
-    throw new Error('シートが見つかりません');//シートが見つからない場合はエラーを投げる
+    throw new Error('シートが見つかりません');
   }
 
   return sheet;
@@ -48,4 +50,50 @@ function getNatureRemoData(endpoint) {
   };
 
   return JSON.parse(UrlFetchApp.fetch("https://api.nature.global/1/" + endpoint, options));
+}
+function detectBrightnessDropNight() {
+  const sheet = getSheet('sensor');
+  const data = sheet.getDataRange().getValues();
+
+  if (data.length < 3) return;
+
+  const rows = data.slice(1);
+  const lastRowIndex = rows.length;
+
+  const last = rows[lastRowIndex - 1];
+  const prev = rows[lastRowIndex - 2];
+
+  const briNow = last[3];
+  const briPrev = prev[3];
+
+  const drop = briPrev - briNow;
+  const THRESHOLD = 50;
+  const dropFlagColumn = 5;
+
+  const flag = drop >= THRESHOLD ? 1 : 0;
+
+  sheet.getRange(lastRowIndex + 1, dropFlagColumn).setValue(flag);
+}
+function detectBrightnessRiseMorning() {
+  const sheet = getSheet('sensor');
+  const data = sheet.getDataRange().getValues();
+
+  if (data.length < 3) return;
+
+  const rows = data.slice(1);
+  const lastRowIndex = rows.length;
+
+  const last = rows[lastRowIndex - 1];
+  const prev = rows[lastRowIndex - 2];
+
+  const briNow = last[3];
+  const briPrev = prev[3];
+
+  const rise = briNow - briPrev;
+  const THRESHOLD = 50;
+  const wakeFlagColumn = 6;  // 起床フラグ用の新しい列（6列目）
+
+  const flag = rise >= THRESHOLD ? 1 : 0;
+
+  sheet.getRange(lastRowIndex + 1, wakeFlagColumn).setValue(flag);
 }
