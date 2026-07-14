@@ -1,4 +1,8 @@
 # ignore
 .clasp.json
+.env
+node_modules/
+dist/
+
 # don't ignore
 !GAS_scripts/appsscript.json

@@ -1,17 +1,136 @@
 const CHANNEL_ACCESS_TOKEN = 'm+1KeiJVgEbJHOdM0phK/SUqO4h8m62vfbsCqbEj68KxCpe6jgM+PmcdpL77RG23Ym/kMXStG8+jiSndMCiFibmf5wIRugFiTsThaIS9lxB1TH+OXvBvMl/Jvydy2N0Tqq4KybkG0jUI/UrRgAM3hwdB04t89/1O/w1cDnyilFU=';
 const SHEET_ID = '1czsCsQTLGVql6AaLEo7vO9D52kxxSmSskbSzyCPXACY';
+const APPS_SCRIPT_SECRET = '';
 
 function doPost(e) {
-  const json = JSON.parse(e.postData.contents);
-  const event = json.events[0];
+  const bodyText = e.postData && e.postData.contents ? e.postData.contents : '';
+  let json;
+  try {
+    json = JSON.parse(bodyText);
+  } catch (err) {
+    return ContentService.createTextOutput('Invalid JSON');
+  }
+
+  const secretHeader = e.headers && (e.headers['x-webapp-secret'] || e.headers['X-WebApp-Secret']);
+  const secretBody = json.secret;
+  const secret = secretHeader || secretBody || '';
+
+  if (APPS_SCRIPT_SECRET && secret !== APPS_SCRIPT_SECRET) {
+    return ContentService.createTextOutput('Invalid secret');
+  }
+
+  if (json.userId && json.birthdate && json.region) {
+    saveBirthday(json.userId, json.birthdate, json.region);
+    return ContentService.createTextOutput('OK');
+  }
+
+  if (json.action === 'getFortune') {
+    const info = getBirthdayAndRegion(json.userId);
+    if (!info) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, reason: 'NotRegistered' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    let { birthday, region } = info;
+    if (birthday instanceof Date) {
+      birthday = Utilities.formatDate(birthday, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    } else {
+      birthday = String(birthday);
+    }
+    const [year, month, day] = birthday.split("-").map(Number);
+    const eto = getZodiacAnimal(year);
+    const seiza = getHoroscope(month, day);
+
+    const ranking = generateRanking();
+    
+    // スコア A (運勢スコア)
+    let A = calcA();
+    if (A == null || isNaN(A)) A = 0.5;
+
+    // センサー平均値の取得とフォールバック
+    let averages = getSensorAverages();
+    if (!averages || averages.avgTmp == null) {
+      averages = { avgTmp: 22.5, avgHum: 50.0, avgBri: 150 };
+    }
+
+    // スコア B (室内環境スコア)
+    let B = calcB();
+    if (B == null || isNaN(B)) B = 0.6;
+
+    // 睡眠時間とスコア C
+    let sleepHours = getSleepHours();
+    if (sleepHours == null || isNaN(sleepHours) || sleepHours <= 0) {
+      sleepHours = 7.0;
+    }
+    let C = calcC(sleepHours);
+    if (C == null || isNaN(C)) C = 0.7;
+
+    // 降水確率とスコア D
+    let rainP = 0;
+    try {
+      rainP = getRainProbability(region);
+    } catch (e) {
+      rainP = 30; // エラー時のデフォルト
+    }
+    if (rainP == null || isNaN(rainP)) rainP = 30;
+
+    let D = calcD(region);
+    if (D == null || isNaN(D)) D = 0.7;
+
+    // 幸福度 H
+    let H = calcH(A, B, C, D);
+    if (H == null || isNaN(H)) H = 0.65;
+
+    // ラッキーアイテム
+    let luckyItem = 'ハンドタオル'; // デフォルト
+    try {
+      luckyItem = getLuckyItem(averages.avgTmp, averages.avgHum, sleepHours, rainP);
+    } catch (e) {
+      // エラー時はデフォルトを使用
+    }
+
+    // アドバイス
+    let advice = '穏やかな一日になりそうです。無理せず自分のペースで過ごしましょう。'; // デフォルト
+    try {
+      advice = generateAdvice(averages.avgTmp, averages.avgHum, sleepHours, rainP);
+    } catch (e) {
+      // エラー時はデフォルトを使用
+    }
+
+    const responseData = {
+      success: true,
+      birthday: birthday,
+      region: region,
+      eto: eto,
+      seiza: seiza,
+      overallRank: ranking.overallRank,
+      zodiacRank: ranking.zodiacRank,
+      constellationRank: ranking.constellationRank,
+      fortuneScore: (A * 100).toFixed(1),
+      avgTmp: averages.avgTmp != null ? averages.avgTmp.toFixed(1) : '22.5',
+      avgHum: averages.avgHum != null ? averages.avgHum.toFixed(1) : '50.0',
+      sleepHours: sleepHours.toFixed(1),
+      happiness: (H * 100).toFixed(1),
+      luckyItem: luckyItem,
+      advice: advice
+    };
+
+    return ContentService.createTextOutput(JSON.stringify(responseData))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
+  const event = json.events && json.events[0];
+  if (!event) {
+    return ContentService.createTextOutput('Unsupported payload');
+  }
   const userId = event.source.userId;
 
   // ① followイベント（初回案内）
   if (event.type === 'follow') {
-  const userId = event.source.userId;
-  sendPush(userId, 'こんにちは！生年月日を入力してください（例：2001-07-01）');
-  return ContentService.createTextOutput('OK');
-}
+    const userId = event.source.userId;
+    sendPush(userId, 'こんにちは！生年月日を入力してください（例：2001-07-01）');
+    return ContentService.createTextOutput('OK');
+  }
 
 
   // ② メッセージ受信
@@ -105,17 +224,51 @@ function sendPush(userId, text) {
 }
 
 // 生年月日保存
-function saveBirthday(userId, birthday) {
+function saveBirthday(userId, birthday, region) {
   const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('birthday');
-  sheet.appendRow([userId, birthday]);
+  if (!sheet) {
+    throw new Error('birthday シートが見つかりません');
+  }
+
+  // すでに登録されている場合は更新、なければ新規追加
+  const data = sheet.getDataRange().getValues();
+  let foundRow = -1;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === userId) {
+      foundRow = i + 1; // 1-indexed
+      break;
+    }
+  }
+
+  if (foundRow !== -1) {
+    sheet.getRange(foundRow, 2).setValue(birthday); // B列
+    sheet.getRange(foundRow, 3).setValue(region || ''); // C列
+  } else {
+    const lastRow = sheet.getLastRow() + 1;
+    sheet.getRange(lastRow, 1).setValue(userId); // A列: userId
+    sheet.getRange(lastRow, 2).setValue(birthday); // B列: birthday
+    sheet.getRange(lastRow, 3).setValue(region || ''); // C列: region
+  }
+}
+
+// 生年月日・地域取得
+function getBirthdayAndRegion(userId) {
+  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('birthday');
+  if (!sheet) return null;
+  const data = sheet.getDataRange().getValues();
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === userId) {
+      return {
+        birthday: data[i][1],
+        region: data[i][2] || '関東'
+      };
+    }
+  }
+  return null;
 }
 
 // 生年月日取得
 function getBirthday(userId) {
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName('birthday');
-  const data = sheet.getDataRange().getValues();
-  for (let i = 0; i < data.length; i++) {
-    if (data[i][0] === userId) return data[i][1];
-  }
-  return null;
+  const info = getBirthdayAndRegion(userId);
+  return info ? info.birthday : null;
 }
