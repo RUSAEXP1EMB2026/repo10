@@ -187,22 +187,11 @@ function testLuckyItem() {
  */
 function getLuckyItemFromSensors(regionName, sleepHours) {
     regionName = regionName || '関東';
-    sleepHours = typeof sleepHours === 'number' ? sleepHours : null;
+    sleepHours = typeof sleepHours === 'number' ? sleepHours : 7;
 
     var averages = getSensorAverages();
     var avgTmp = averages && typeof averages.avgTmp === 'number' ? averages.avgTmp : 22;
     var avgHum = averages && typeof averages.avgHum === 'number' ? averages.avgHum : 55;
-
-    if (sleepHours === null) {
-        var calculatedSleep = null;
-        try {
-            calculatedSleep = getSleepHours();
-        } catch (e) {
-            Logger.log('getSleepHours failed: ' + e);
-            calculatedSleep = null;
-        }
-        sleepHours = typeof calculatedSleep === 'number' ? calculatedSleep : 7;
-    }
 
     var precip = 0;
     try {

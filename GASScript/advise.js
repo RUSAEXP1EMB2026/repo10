@@ -96,7 +96,7 @@ function callGeminiAdvice(prompt) {
         return null;
     }
 
-    var modelName = 'gemini-3.1-flash-lite';
+    var modelName = 'gemini-2.0-flash';
     var payload = {
         contents: [
             {
@@ -223,6 +223,141 @@ function testCallGeminiRaw() {
 function testCallGeminiOneSentence() {
     var prompt = buildAdvicePrompt(24, 55, 7, 30);
     var text = callGeminiAdvice(prompt);
+    Logger.log('raw: ' + text);
+    Logger.log('one sentence: ' + (text ? normalizeAdviceToOneSentence(text) : 'null'));
+}
+
+/**
+ * GitHub Models API 用のアクセストークンを取得する。
+ * @return {string|null}
+ */
+function getGitHubToken() {
+    return PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+}
+
+/**
+ * デフォルトの GitHub モデル名を取得する。
+ * @return {string}
+ */
+function getGitHubModelName() {
+    return PropertiesService.getScriptProperties().getProperty('GITHUB_MODEL_NAME') || 'openai/o4-mini';
+}
+
+/**
+ * GitHub Models API を呼び出して文章を取得する。
+ * @param {string} prompt
+ * @return {string|null}
+ */
+function callGitHubModel(prompt) {
+    var cacheKey = 'github:' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, prompt)).slice(0, 22);
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get(cacheKey);
+    if (cached) {
+        return cached;
+    }
+
+    var apiKey = getGitHubToken();
+    if (!apiKey) {
+        Logger.log('GITHUB_TOKEN is not set.');
+        return null;
+    }
+
+    var modelName = getGitHubModelName();
+    var payload = {
+        input: prompt
+    };
+
+    try {
+        var response = UrlFetchApp.fetch(
+            'https://api.github.com/models/' + encodeURIComponent(modelName) + '/predictions',
+            {
+                method: 'post',
+                contentType: 'application/json',
+                headers: {
+                    Authorization: 'Bearer ' + apiKey,
+                    Accept: 'application/vnd.github+json'
+                },
+                payload: JSON.stringify(payload),
+                muteHttpExceptions: true
+            }
+        );
+
+        var responseCode = response.getResponseCode();
+        var content = response.getContentText();
+
+        if (responseCode !== 200 && responseCode !== 201) {
+            Logger.log('GitHub Models API error (' + responseCode + '): ' + content);
+            return null;
+        }
+
+        var data = JSON.parse(content);
+        var output = null;
+        if (data && data.output) {
+            if (Array.isArray(data.output)) {
+                output = data.output.join('');
+            } else {
+                output = String(data.output);
+            }
+        } else if (data && data.data && Array.isArray(data.data) && data.data.length > 0) {
+            output = String(data.data[0]);
+        }
+
+        if (output) {
+            var ttl = getGeminiCacheTTLSeconds();
+            try {
+                cache.put(cacheKey, output, ttl);
+            } catch (e) {
+                Logger.log('Cache put failed: ' + e);
+            }
+            return output;
+        }
+    } catch (error) {
+        Logger.log('GitHub Models API request failed: ' + error);
+    }
+
+    return null;
+}
+
+/**
+ * 直接 UrlFetch で GitHub Models API を呼んで HTTP ステータスとレスポンスをログ出力するテスト関数。
+ */
+function testCallGitHubRaw() {
+    var prompt = buildAdvicePrompt(24, 55, 7, 30);
+    var apiKey = getGitHubToken();
+    if (!apiKey) {
+        Logger.log('GITHUB_TOKEN is not set');
+        return;
+    }
+
+    var modelName = getGitHubModelName();
+    var payload = { input: prompt };
+    try {
+        var resp = UrlFetchApp.fetch(
+            'https://api.github.com/models/' + encodeURIComponent(modelName) + '/predictions',
+            {
+                method: 'post',
+                contentType: 'application/json',
+                headers: {
+                    Authorization: 'Bearer ' + apiKey,
+                    Accept: 'application/vnd.github+json'
+                },
+                payload: JSON.stringify(payload),
+                muteHttpExceptions: true
+            }
+        );
+        Logger.log('HTTP ' + resp.getResponseCode());
+        Logger.log(resp.getContentText());
+    } catch (e) {
+        Logger.log('fetch error: ' + e);
+    }
+}
+
+/**
+ * GitHub Models API の出力を1文だけ抽出してログ出力するテスト関数。
+ */
+function testCallGitHubOneSentence() {
+    var prompt = buildAdvicePrompt(24, 55, 7, 30);
+    var text = callGitHubModel(prompt);
     Logger.log('raw: ' + text);
     Logger.log('one sentence: ' + (text ? normalizeAdviceToOneSentence(text) : 'null'));
 }
@@ -437,24 +572,12 @@ function testAdvice() {
  */
 function generateAdviceFromSensors(regionName, sleepHours) {
     regionName = regionName || '関東';
-    sleepHours = typeof sleepHours === 'number' ? sleepHours : null;
+    sleepHours = typeof sleepHours === 'number' ? sleepHours : 7;
 
     // getSensorAverages は average.js で定義されている想定
     var averages = getSensorAverages();
     var avgTmp = averages && typeof averages.avgTmp === 'number' ? averages.avgTmp : 24;
     var avgHum = averages && typeof averages.avgHum === 'number' ? averages.avgHum : 55;
-
-    // getSleepHours は calculateHappy.js で定義されている想定
-    if (sleepHours === null) {
-        var calculatedSleep = null;
-        try {
-            calculatedSleep = getSleepHours();
-        } catch (e) {
-            Logger.log('getSleepHours failed: ' + e);
-            calculatedSleep = null;
-        }
-        sleepHours = typeof calculatedSleep === 'number' ? calculatedSleep : 7;
-    }
 
     // getRainProbability は rainProbability.js で定義されている想定
     var precip = 0;
@@ -464,6 +587,7 @@ function generateAdviceFromSensors(regionName, sleepHours) {
         Logger.log('getRainProbability failed: ' + e);
         precip = 0;
     }
+
 
     return generateAdvice(avgTmp, avgHum, sleepHours, precip);
 }
