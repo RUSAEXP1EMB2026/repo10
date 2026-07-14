@@ -96,7 +96,7 @@ function callGeminiAdvice(prompt) {
         return null;
     }
 
-    var modelName = 'gemini-2.0-flash-lite';
+    var modelName = 'gemini-3.1-flash-lite';
     var payload = {
         contents: [
             {
@@ -187,6 +187,44 @@ function getGeminiCacheTTLSeconds() {
  */
 function getGeminiApiKey() {
     return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+}
+
+
+/**
+ * 直接 UrlFetch で Gemini を呼んで HTTP ステータスとレスポンスをログ出力するテスト関数。
+ */
+function testCallGeminiRaw() {
+    var prompt = buildAdvicePrompt(24, 55, 7, 30);
+    var apiKey = getGeminiApiKey();
+    if (!apiKey) {
+        Logger.log('GEMINI_API_KEY is not set');
+        return;
+    }
+    var modelName = 'gemini-3.1-flash-lite';
+    var payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.8, maxOutputTokens: 120 }
+    };
+    try {
+        var resp = UrlFetchApp.fetch(
+            'https://generativelanguage.googleapis.com/v1beta/models/' + modelName + ':generateContent?key=' + apiKey,
+            { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true }
+        );
+        Logger.log('HTTP ' + resp.getResponseCode());
+        Logger.log(resp.getContentText());
+    } catch (e) {
+        Logger.log('fetch error: ' + e);
+    }
+}
+
+/**
+ * 既存の `callGeminiAdvice` を使い、AIの生成テキストと抽出した1文をログ出力するテスト関数。
+ */
+function testCallGeminiOneSentence() {
+    var prompt = buildAdvicePrompt(24, 55, 7, 30);
+    var text = callGeminiAdvice(prompt);
+    Logger.log('raw: ' + text);
+    Logger.log('one sentence: ' + (text ? normalizeAdviceToOneSentence(text) : 'null'));
 }
 
 /**
@@ -399,12 +437,24 @@ function testAdvice() {
  */
 function generateAdviceFromSensors(regionName, sleepHours) {
     regionName = regionName || '関東';
-    sleepHours = typeof sleepHours === 'number' ? sleepHours : 7;
+    sleepHours = typeof sleepHours === 'number' ? sleepHours : null;
 
     // getSensorAverages は average.js で定義されている想定
     var averages = getSensorAverages();
     var avgTmp = averages && typeof averages.avgTmp === 'number' ? averages.avgTmp : 24;
     var avgHum = averages && typeof averages.avgHum === 'number' ? averages.avgHum : 55;
+
+    // getSleepHours は calculateHappy.js で定義されている想定
+    if (sleepHours === null) {
+        var calculatedSleep = null;
+        try {
+            calculatedSleep = getSleepHours();
+        } catch (e) {
+            Logger.log('getSleepHours failed: ' + e);
+            calculatedSleep = null;
+        }
+        sleepHours = typeof calculatedSleep === 'number' ? calculatedSleep : 7;
+    }
 
     // getRainProbability は rainProbability.js で定義されている想定
     var precip = 0;
@@ -414,7 +464,6 @@ function generateAdviceFromSensors(regionName, sleepHours) {
         Logger.log('getRainProbability failed: ' + e);
         precip = 0;
     }
-
 
     return generateAdvice(avgTmp, avgHum, sleepHours, precip);
 }
