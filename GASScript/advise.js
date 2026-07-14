@@ -415,5 +415,6 @@ function generateAdviceFromSensors(regionName, sleepHours) {
         precip = 0;
     }
 
+
     return generateAdvice(avgTmp, avgHum, sleepHours, precip);
 }
