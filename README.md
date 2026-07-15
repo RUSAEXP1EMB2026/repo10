@@ -2,7 +2,7 @@
 
 ![Fortune Teller](https://i.imgur.com/XpoLAuL.jpeg)
 
-このプロジェクトは、Nature Remo 3 の室内環境センサーデータ、天気予報 API（OpenWeatherMap）、およびユーザーの生年月日（星座・干支）を連携させ、独自の「幸福度」と「占い結果」を算出して **LINE** および **Discord** でユーザーに提供するスマートライフ占いシステムです。
+このプロジェクトは、Nature Remo 3 の室内環境センサーデータ、天気予報 API（OpenWeatherMap）、およびユーザーの生年月日（星座・干支）を連携させ、独自の「幸福度」と「占い結果」を算出して **Discord** でユーザーに提供するスマートライフ占いシステムです。
 
 ---
 
@@ -45,18 +45,6 @@
     ├── index.js            # ボットのメイン処理（コマンド登録、モーダル、WebApp連携）
     └── .env.example        # 環境変数のサンプル
 ```
-
----
-
-## データベース（Google スプレッドシート）仕様
-
-スプレッドシート内の `birthday` シートにユーザー情報を保存します。
-
-- **A列**: `userId` (LINEまたはDiscordの内部ユーザーID)
-- **B列**: `birthday` (生年月日 `YYYY-MM-DD`)
-- **C列**: `region` (地域名)
-
----
 
 ## セットアップ手順
 
