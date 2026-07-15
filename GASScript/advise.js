@@ -1,3 +1,5 @@
+var lastGeminiError = null;
+
 /**
  * 平均気温・湿度・睡眠時間・降水確率に応じて、
  * Gemini API を使って占いアドバイスを生成するモジュールです。
@@ -66,9 +68,7 @@ function generateAdviceFromMetrics(averageTemperature, averageHumidity, sleepHou
  */
 function buildAdvicePrompt(averageTemperature, averageHumidity, sleepHours, precipitationProbability) {
     return [
-        'あなたは日本語の占い師です。',
         '次の条件に基づいて、ユーザーに送る短く総合的な占いアドバイスを1文で作成してください。',
-        '文章はやさしく、ポジティブで、実生活に役立つ内容にしてください。',
         '平均気温: ' + averageTemperature + '℃',
         '平均湿度: ' + averageHumidity + '%',
         '睡眠時間: ' + sleepHours + '時間',
@@ -82,6 +82,7 @@ function buildAdvicePrompt(averageTemperature, averageHumidity, sleepHours, prec
  * @return {string|null}
  */
 function callGeminiAdvice(prompt) {
+    lastGeminiError = null;
     // キャッシュキーはプロンプトのハッシュ（短縮）を使う
     var cacheKey = 'gemini:' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, prompt)).slice(0, 22);
     var cache = CacheService.getScriptCache();
@@ -93,10 +94,11 @@ function callGeminiAdvice(prompt) {
     var apiKey = getGeminiApiKey();
     if (!apiKey) {
         Logger.log('GEMINI_API_KEY is not set.');
+        lastGeminiError = 'GEMINI_API_KEY is not set';
         return null;
     }
 
-    var modelName = 'gemini-2.0-flash';
+    var modelName = 'gemini-3.1-flash-lite';
     var payload = {
         contents: [
             {
@@ -107,9 +109,16 @@ function callGeminiAdvice(prompt) {
                 ]
             }
         ],
+        systemInstruction: {
+            parts: [
+                {
+                    text: 'あなたは日本語の占い師です。文章はやさしく、ポジティブで、実生活に役立つ内容にして、1文で出力してください。'
+                }
+            ]
+        },
         generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 120
+            temperature: 0.6,
+            maxOutputTokens: 60
         }
     };
 
@@ -130,11 +139,13 @@ function callGeminiAdvice(prompt) {
         // レート制限などの判定: 429 やエラーメッセージが含まれる場合は null を返してフォールバック
         if (responseCode === 429) {
             Logger.log('Gemini rate limited (429).');
+            lastGeminiError = 'Gemini rate limited (429)';
             return null;
         }
 
         if (responseCode !== 200) {
             Logger.log('Gemini API error (' + responseCode + '): ' + content);
+            lastGeminiError = 'API Error ' + responseCode + ': ' + content;
             return null;
         }
 
@@ -163,6 +174,7 @@ function callGeminiAdvice(prompt) {
         }
     } catch (error) {
         Logger.log('Gemini API request failed: ' + error);
+        lastGeminiError = 'Request Exception: ' + error;
     }
 
     return null;

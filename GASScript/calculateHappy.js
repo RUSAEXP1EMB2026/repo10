@@ -114,7 +114,11 @@ function testD() {
 }
 
 function calcH(A, B, C, D) {
-  return 0.55 * A + 0.2 * B + 0.15 * C + 0.1 * D;
+  const safeA = (A != null && !isNaN(A)) ? A : 0.5;
+  const safeB = (B != null && !isNaN(B)) ? B : 0.5;
+  const safeC = (C != null && !isNaN(C)) ? C : 0.5;
+  const safeD = (D != null && !isNaN(D)) ? D : 0.5;
+  return 0.55 * safeA + 0.2 * safeB + 0.15 * safeC + 0.1 * safeD;
 }
 
 function testH() {

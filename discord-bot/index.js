@@ -170,18 +170,26 @@ client.on('interactionCreate', async (interaction) => {
                 const embed = new EmbedBuilder()
                     .setTitle('🔮 本日の占い結果 🔮')
                     .setColor(0x5865F2)
-                    .setDescription(`${interaction.user.toString()} さんの本日の運勢と室内環境データです。`)
+                    .setDescription(
+                        `${interaction.user.toString()} さんの本日の運勢です。\n\n` +
+                        `# 🏆 総合順位: **${data.overallRank}** 位\n` +
+                        `## 💖 幸福度: **${data.happiness}%**\n\n` +
+                        `### 🎁 ラッキーアイテム\n${data.luckyItem}\n\n` +
+                        `### 📝 今日の一言アドバイス\n${data.advice}\n` +
+                        `* * *`
+                    )
                     .addFields(
-                        { name: '👤 登録情報', value: `生年月日: \`${data.birthday}\` / 地域: \`${data.region}\``, inline: false },
-                        { name: '🌟 星座・干支', value: `星座: \`${data.seiza}\` / 干支: \`${data.eto}\``, inline: true },
-                        { name: '🏆 今日の順位', value: `総合: **${data.overallRank}** 位\n(干支: ${data.zodiacRank}位 / 星座: ${data.constellationRank}位)`, inline: true },
-                        { name: '💖 運勢スコア & 幸福度', value: `運勢スコア: \`${data.fortuneScore}%\` / 幸福度: \`${data.happiness}%\``, inline: false },
+                        { name: '🌟 星座・干支', value: `星座: \`${data.seiza}\` / 干支: \`${data.eto}\` (干支: ${data.zodiacRank}位 / 星座: ${data.constellationRank}位)`, inline: false },
                         { name: '🌡️ 室内環境平均', value: `気温: \`${data.avgTmp}℃\` / 湿度: \`${data.avgHum}%\``, inline: true },
                         { name: '😴 睡眠時間', value: `睡眠時間: \`${data.sleepHours} 時間\``, inline: true },
-                        { name: '🎁 ラッキーアイテム', value: `${data.luckyItem}`, inline: false },
-                        { name: '📝 今日の一言アドバイス', value: `${data.advice}`, inline: false }
+                        { name: '🌂 降水確率', value: `降水確率: \`${data.rainP}%\``, inline: true },
+                        { name: '👤 登録情報', value: `生年月日: \`${data.birthday}\` / 地域: \`${data.region}\``, inline: false }
                     )
                     .setTimestamp();
+
+                if (data.geminiError) {
+                    console.warn(`[Gemini Error Debug]: ${data.geminiError}`);
+                }
 
                 await interaction.editReply({ embeds: [embed] });
             } catch (err) {

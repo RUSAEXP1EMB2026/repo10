@@ -42,60 +42,25 @@ function doPost(e) {
     const seiza = getHoroscope(month, day);
 
     const ranking = generateRanking();
-    
-    // スコア A (運勢スコア)
-    let A = calcA();
-    if (A == null || isNaN(A)) A = 0.5;
+    const A = calcA();
+    const B = calcB();
+    const averages = getSensorAverages();
+    const sleepHours = getSleepHours();
+    const C = calcC(sleepHours);
 
-    // センサー平均値の取得とフォールバック
-    let averages = getSensorAverages();
-    if (!averages || averages.avgTmp == null) {
-      averages = { avgTmp: 22.5, avgHum: 50.0, avgBri: 150 };
-    }
-
-    // スコア B (室内環境スコア)
-    let B = calcB();
-    if (B == null || isNaN(B)) B = 0.6;
-
-    // 睡眠時間とスコア C
-    let sleepHours = getSleepHours();
-    if (sleepHours == null || isNaN(sleepHours) || sleepHours <= 0) {
-      sleepHours = 7.0;
-    }
-    let C = calcC(sleepHours);
-    if (C == null || isNaN(C)) C = 0.7;
-
-    // 降水確率とスコア D
-    let rainP = 0;
+    // 降水確率の取得（API呼び出しを1回に最適化し、エラーをハンドリング）
+    let rainP = null;
     try {
       rainP = getRainProbability(region);
     } catch (e) {
-      rainP = 30; // エラー時のデフォルト
-    }
-    if (rainP == null || isNaN(rainP)) rainP = 30;
-
-    let D = calcD(region);
-    if (D == null || isNaN(D)) D = 0.7;
-
-    // 幸福度 H
-    let H = calcH(A, B, C, D);
-    if (H == null || isNaN(H)) H = 0.65;
-
-    // ラッキーアイテム
-    let luckyItem = 'ハンドタオル'; // デフォルト
-    try {
-      luckyItem = getLuckyItem(averages.avgTmp, averages.avgHum, sleepHours, rainP);
-    } catch (e) {
-      // エラー時はデフォルトを使用
+      Logger.log("Failed to get rain probability: " + e);
     }
 
-    // アドバイス
-    let advice = '穏やかな一日になりそうです。無理せず自分のペースで過ごしましょう。'; // デフォルト
-    try {
-      advice = generateAdvice(averages.avgTmp, averages.avgHum, sleepHours, rainP);
-    } catch (e) {
-      // エラー時はデフォルトを使用
-    }
+    const D = (rainP != null) ? (100 - rainP) / 100 : null;
+    const H = calcH(A, B, C, D);
+
+    const luckyItem = getLuckyItem(averages.avgTmp, averages.avgHum, sleepHours, rainP != null ? rainP : 30);
+    const advice = generateAdvice(averages.avgTmp, averages.avgHum, sleepHours, rainP != null ? rainP : 30);
 
     const responseData = {
       success: true,
@@ -107,12 +72,14 @@ function doPost(e) {
       zodiacRank: ranking.zodiacRank,
       constellationRank: ranking.constellationRank,
       fortuneScore: (A * 100).toFixed(1),
-      avgTmp: averages.avgTmp != null ? averages.avgTmp.toFixed(1) : '22.5',
-      avgHum: averages.avgHum != null ? averages.avgHum.toFixed(1) : '50.0',
-      sleepHours: sleepHours.toFixed(1),
+      avgTmp: averages.avgTmp != null ? averages.avgTmp.toFixed(1) : '取得失敗',
+      avgHum: averages.avgHum != null ? averages.avgHum.toFixed(1) : '取得失敗',
+      sleepHours: sleepHours != null ? sleepHours.toFixed(1) : '取得失敗',
       happiness: (H * 100).toFixed(1),
       luckyItem: luckyItem,
-      advice: advice
+      advice: advice,
+      rainP: rainP != null ? rainP.toFixed(0) : '取得失敗',
+      geminiError: lastGeminiError
     };
 
     return ContentService.createTextOutput(JSON.stringify(responseData))
